@@ -1,2 +1,2 @@
-# kaggle_alaska_2
+# kaggle_melanoma
 https://www.kaggle.com/c/alaska2-image-steganalysis
