@@ -5,11 +5,11 @@ sync_bn: True
 num_folds: 5
 fold_id: 0
 num_workers: 12
-experiment_name: "2020-07-09"
+experiment_name: "2020-07-10"
 
 model:
   type: timm.create_model
-  model_name: efficientnet_b3
+  model_name: seresnext26tn_32x4d
   num_classes: 1
   pretrained: True
 
@@ -34,7 +34,7 @@ scheduler:
   max_iter: 100
 
 train_parameters:
-  batch_size: 24
+  batch_size: 16
   stratified: True
 
 checkpoint_callback:
@@ -70,12 +70,12 @@ train_aug:
       - __class_fullname__: albumentations.augmentations.transforms.SmallestMaxSize
         always_apply: false
         p: 1
-        max_size: 256
+        max_size: 512
       - __class_fullname__: albumentations.augmentations.transforms.RandomCrop
         always_apply: false
         p: 1
-        height: 256
-        width: 256
+        height: 512
+        width: 512
 #      - __class_fullname__: albumentations.augmentations.transforms.RandomRotate90
 #        always_apply: false
 #        p: 1
@@ -102,12 +102,12 @@ val_aug:
       - __class_fullname__: albumentations.augmentations.transforms.SmallestMaxSize
         always_apply: false
         p: 1
-        max_size: 256
+        max_size: 512
       - __class_fullname__: albumentations.augmentations.transforms.CenterCrop
         always_apply: false
         p: 1
-        height: 256
-        width: 256
+        height: 512
+        width: 512
       - __class_fullname__: albumentations.augmentations.transforms.Normalize
         always_apply: false
         max_pixel_value: 255.0
@@ -131,12 +131,12 @@ test_aug:
       - __class_fullname__: albumentations.augmentations.transforms.SmallestMaxSize
         always_apply: false
         p: 1
-        max_size: 256
+        max_size: 512
       - __class_fullname__: albumentations.augmentations.transforms.CenterCrop
         always_apply: false
         p: 1
-        height: 256
-        width: 256
+        height: 512
+        width: 512
       - __class_fullname__: albumentations.augmentations.transforms.Normalize
         always_apply: false
         max_pixel_value: 255.0

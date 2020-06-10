@@ -146,13 +146,13 @@ def main():
     #     val_columns=["val_loss", "auc_score"],
     # )
 
-    # neptune_logger = NeptuneLogger(
-    #     api_key=os.environ["NEPTUNE_API_TOKEN"],
-    #     project_name="tinve/kaggle-melanoma",
-    #     experiment_name=f"{hparams['experiment_name']}",  # Optional,
-    #     tags=["pytorch-lightning", "mlp"],  # Optional,
-    #     upload_source_files=[],
-    # )
+    neptune_logger = NeptuneLogger(
+        api_key=os.environ["NEPTUNE_API_TOKEN"],
+        project_name="tinve/kaggle-melanoma",
+        experiment_name=f"{hparams['experiment_name']}",  # Optional,
+        tags=["pytorch-lightning", "mlp"],  # Optional,
+        upload_source_files=[],
+    )
 
     pipeline = Melanoma(hparams)
 
@@ -160,7 +160,7 @@ def main():
 
     trainer = object_from_dict(
         hparams["trainer"],
-        # logger=neptune_logger,
+        logger=neptune_logger,
         checkpoint_callback=object_from_dict(hparams["checkpoint_callback"]),
     )
 
