@@ -14,11 +14,10 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from kaggle_alaska_2.dataloader import AlaskaTest2Dataset, Alaska2Dataset
-from kaggle_alaska_2.metric import alaska_weighted_auc
-from kaggle_alaska_2.train import Alaska2
-from kaggle_alaska_2.utils import get_samples, folder2label
-from kaggle_alaska_2.utils import load_checkpoint
+from kaggle_mealnoma.dataloader import MelanomaDataset, MelanomaTestDataset
+from kaggle_melanoma.metric import melanoma_auc
+from kaggle_melanoma.train import Melanoma
+from kaggle_melanoma.utils import get_samples, folder2label, load_checkpoint
 
 
 def get_args():
@@ -36,7 +35,7 @@ def main():
     with open(args.config_path) as f:
         hparams = yaml.load(f, Loader=yaml.SafeLoader)
 
-    model = Alaska2(hparams=hparams)
+    model = Melanoma(hparams=hparams)
 
     corrections: Dict[str, str] = {}
 
@@ -67,7 +66,7 @@ def main():
                 val_samples += samples[val_index].tolist()
 
         dataloader = DataLoader(
-            Alaska2Dataset(val_samples, val_aug),
+            MelanomaDataset(val_samples, val_aug),
             batch_size=hparams["val_parameters"]["batch_size"],
             num_workers=hparams["num_workers"],
             shuffle=False,
@@ -88,7 +87,7 @@ def main():
             y_true += targets.cpu().numpy().T.tolist()[0]
 
         print("Val log loss = ", log_loss(y_true, y_pred))
-        print("Auc = ", alaska_weighted_auc(y_true, y_pred))
+        print("Auc = ", melanoma_auc(y_true, y_pred))
 
         print("Evaluate on test.")
         test_aug = from_dict(hparams["test_aug"])
@@ -96,7 +95,7 @@ def main():
         test_file_names = sorted((Path(hparams["data_path"]) / "Test").glob("*.jpg"))
 
         dataloader = DataLoader(
-            AlaskaTest2Dataset(test_file_names, test_aug),
+            MelanomaTestDataset(test_file_names, test_aug),
             batch_size=hparams["test_parameters"]["batch_size"],
             num_workers=hparams["num_workers"],
             shuffle=False,

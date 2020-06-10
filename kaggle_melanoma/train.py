@@ -15,9 +15,8 @@ from pytorch_lightning.logging import NeptuneLogger
 from sklearn.model_selection import KFold
 from torch.utils.data import DataLoader
 
-from kaggle_alaska_2.dataloader import Alaska2Dataset
-from kaggle_alaska_2.metric import alaska_weighted_auc
-from kaggle_alaska_2.utils import get_samples, folder2label
+from kaggle_melanoma.dataloader import MelanomaDataset
+from kaggle_melanoma.utils import get_samples, melanoma_auc
 
 
 def get_args():
@@ -28,7 +27,7 @@ def get_args():
     return parser.parse_args()
 
 
-class Alaska2(pl.LightningModule):
+class Melanoma(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
 
@@ -41,34 +40,29 @@ class Alaska2(pl.LightningModule):
 
         self.loss = object_from_dict(self.hparams["loss"])
 
+        self.train_samples = []  # skipcq: PYL-W0201
+        self.val_samples = []  # skipcq: PYL-W0201
+
     def forward(self, batch: Dict) -> torch.Tensor:  # skipcq: PYL-W0221
         return self.model(batch)
 
     def prepare_data(self):
-        self.train_samples = []  # skipcq: PYL-W0201
-        self.val_samples = []  # skipcq: PYL-W0201
+        samples = np.array(get_samples(Path(self.hparams["data_path"])))
 
         kf = KFold(n_splits=self.hparams["num_folds"], random_state=self.hparams["seed"], shuffle=True)
 
-        for folder in sorted(list(folder2label.keys())):
-            samples = np.array(get_samples(Path(self.hparams["data_path"]) / folder))
+        for fold_id, (train_index, val_index) in enumerate(kf.split(samples)):
+            if fold_id != self.hparams["fold_id"]:
+                continue
 
-            for fold_id, (train_index, val_index) in enumerate(kf.split(samples)):
-                if fold_id != self.hparams["fold_id"]:
-                    continue
-
-                self.train_samples += samples[train_index].tolist()
-                self.val_samples += samples[val_index].tolist()
+            self.train_samples = samples[train_index].tolist()
+            self.val_samples = samples[val_index].tolist()
 
     def train_dataloader(self):
         train_aug = from_dict(self.hparams["train_aug"])
 
-        stratified = (
-            "stratified" in self.hparams["train_parameters"] and self.hparams["train_parameters"]["stratified"]
-        )
-
         result = DataLoader(
-            Alaska2Dataset(self.train_samples, train_aug, stratified=stratified),
+            MelanomaDataset(self.train_samples, train_aug),
             batch_size=self.hparams["train_parameters"]["batch_size"],
             num_workers=self.hparams["num_workers"],
             shuffle=True,
@@ -81,7 +75,7 @@ class Alaska2(pl.LightningModule):
         val_aug = from_dict(self.hparams["val_aug"])
 
         return DataLoader(
-            Alaska2Dataset(self.val_samples, val_aug),
+            MelanomaDataset(self.val_samples, val_aug),
             batch_size=self.hparams["val_parameters"]["batch_size"],
             num_workers=self.hparams["num_workers"],
             shuffle=False,
@@ -131,7 +125,7 @@ class Alaska2(pl.LightningModule):
             result_logits += torch.sigmoid(output["logits"]).cpu().numpy().flatten().tolist()
             result_targets += output["targets"].cpu().numpy().flatten().tolist()
 
-        auc_score = alaska_weighted_auc(result_targets, result_logits)
+        auc_score = melanoma_auc(result_targets, result_logits)
 
         loss = find_average(outputs, "val_loss")
         logs = {"val_loss": loss, "epoch": self.trainer.current_epoch, "auc_score": auc_score}
@@ -154,13 +148,13 @@ def main():
     #
     neptune_logger = NeptuneLogger(
         api_key=os.environ["NEPTUNE_API_TOKEN"],
-        project_name="ternaus/kagglealaska2",
+        project_name="tinve/kaggle_melanoma",
         experiment_name=f"{hparams['experiment_name']}",  # Optional,
         tags=["pytorch-lightning", "mlp"],  # Optional,
         upload_source_files=[],
     )
 
-    pipeline = Alaska2(hparams)
+    pipeline = Melanoma(hparams)
 
     Path(hparams["checkpoint_callback"]["filepath"]).mkdir(exist_ok=True, parents=True)
 
