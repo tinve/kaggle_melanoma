@@ -128,6 +128,15 @@ test_aug:
     keypoint_params: null
     p: 1
     transforms:
+      - __class_fullname__: albumentations.augmentations.transforms.SmallestMaxSize
+        always_apply: false
+        p: 1
+        max_size: 256
+      - __class_fullname__: albumentations.augmentations.transforms.CenterCrop
+        always_apply: false
+        p: 1
+        height: 256
+        width: 256
       - __class_fullname__: albumentations.augmentations.transforms.Normalize
         always_apply: false
         max_pixel_value: 255.0

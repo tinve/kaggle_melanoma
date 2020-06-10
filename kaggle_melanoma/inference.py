@@ -14,10 +14,9 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from kaggle_mealnoma.dataloader import MelanomaDataset, MelanomaTestDataset
-from kaggle_melanoma.metric import melanoma_auc
+from kaggle_melanoma.dataloader import MelanomaDataset, MelanomaTestDataset
 from kaggle_melanoma.train import Melanoma
-from kaggle_melanoma.utils import get_samples, folder2label, load_checkpoint
+from kaggle_melanoma.utils import get_samples, load_checkpoint, melanoma_auc
 
 
 def get_args():
@@ -52,18 +51,15 @@ def main():
     with torch.no_grad():
         print("Evaluate on validation.")
         val_aug = from_dict(hparams["val_aug"])
-        val_samples = []
+        val_samples = np.array(get_samples(Path(hparams["data_path"])))
 
         kf = KFold(n_splits=hparams["num_folds"], random_state=hparams["seed"], shuffle=True)
 
-        for folder in sorted(list(folder2label.keys())):
-            samples = np.array(get_samples(Path(hparams["data_path"]) / folder))
+        for fold_id, (_, val_index) in enumerate(kf.split(val_samples)):
+            if fold_id != hparams["fold_id"]:
+                continue
 
-            for fold_id, (_, val_index) in enumerate(kf.split(samples)):
-                if fold_id != hparams["fold_id"]:
-                    continue
-
-                val_samples += samples[val_index].tolist()
+            val_samples = val_samples[val_index].tolist()
 
         dataloader = DataLoader(
             MelanomaDataset(val_samples, val_aug),
@@ -92,7 +88,7 @@ def main():
         print("Evaluate on test.")
         test_aug = from_dict(hparams["test_aug"])
 
-        test_file_names = sorted((Path(hparams["data_path"]) / "Test").glob("*.jpg"))
+        test_file_names = sorted((Path(hparams["data_path"]) / "jpeg" / "test").glob("*.jpg"))
 
         dataloader = DataLoader(
             MelanomaTestDataset(test_file_names, test_aug),
@@ -119,9 +115,7 @@ def main():
 
             y_pred += preds.cpu().numpy().T.tolist()[0]
 
-        submission = pd.DataFrame({"Id": file_ids, "Label": y_pred})
-
-        submission["Id"] = submission["Id"] + ".jpg"
+        submission = pd.DataFrame({"image_name": file_ids, "target": y_pred})
 
         submission.to_csv(args.output_path, index=False)
 
