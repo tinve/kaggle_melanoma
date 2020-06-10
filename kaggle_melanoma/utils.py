@@ -8,8 +8,8 @@ import torch
 
 
 def get_samples(data_path: Path) -> List[Tuple[Path, int]]:
-    df = pd.read_csv(data_path / 'train.csv')[['image_name', 'target']]
-    df['image_name'] = df['image_name'].apply(lambda x: data_path / (x + '.jpg'))
+    df = pd.read_csv(data_path / "train.csv")[["image_name", "target"]]
+    df["image_name"] = df["image_name"].apply(lambda x: data_path / "jpeg" / "train" / (x + ".jpg"))
     return list(df.itertuples(index=False, name=None))
 
 

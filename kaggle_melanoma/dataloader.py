@@ -49,7 +49,7 @@ class MelanomaTestDataset(Dataset):
     def __getitem__(self, idx: int) -> Dict[str, Any]:
         image_path = self.samples[idx]
 
-        image = load_rgb(image_path, lib="jpeg4py")
+        image = load_rgb(image_path, lib="cv2")
 
         # apply augmentations
         image = self.transform(image=image)["image"]
