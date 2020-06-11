@@ -39,7 +39,7 @@ train_parameters:
 
 checkpoint_callback:
   type: pytorch_lightning.callbacks.ModelCheckpoint
-  filepath: "2020-07-09"
+  filepath: "2020-07-10"
   monitor: val_loss
   verbose: True
   mode: min
