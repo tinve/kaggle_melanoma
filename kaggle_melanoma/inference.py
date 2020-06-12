@@ -9,14 +9,13 @@ import yaml
 from albumentations.core.serialization import from_dict
 from pytorch_toolbelt.inference import tta
 from sklearn.metrics import log_loss
-from sklearn.model_selection import KFold
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from kaggle_melanoma.dataloader import MelanomaDataset, MelanomaTestDataset
 from kaggle_melanoma.train import Melanoma
-from kaggle_melanoma.utils import get_samples, load_checkpoint, melanoma_auc
+from kaggle_melanoma.utils import get_samples, load_checkpoint, melanoma_auc, stratified_group_k_fold
 
 
 def get_args():
@@ -52,10 +51,12 @@ def main():
         print("Evaluate on validation.")
         val_aug = from_dict(hparams["val_aug"])
         val_samples = np.array(get_samples(Path(hparams["data_path"])))
+        val_target = val_samples[:, 1]
+        val_groups = val_samples[:, 2]
 
-        kf = KFold(n_splits=hparams["num_folds"], random_state=hparams["seed"], shuffle=True)
+        kf = stratified_group_k_fold(val_target, val_groups, num_folds=hparams["num_folds"], seed=hparams["seed"])
 
-        for fold_id, (_, val_index) in enumerate(kf.split(val_samples)):
+        for fold_id, (_, val_index) in enumerate(kf):
             if fold_id != hparams["fold_id"]:
                 continue
 

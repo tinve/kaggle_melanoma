@@ -12,11 +12,10 @@ from albumentations.core.serialization import from_dict
 from iglovikov_helper_functions.config_parsing.utils import object_from_dict
 from iglovikov_helper_functions.dl.pytorch.lightning import find_average
 from pytorch_lightning.logging import NeptuneLogger
-from sklearn.model_selection import KFold
 from torch.utils.data import DataLoader
 
 from kaggle_melanoma.dataloader import MelanomaDataset
-from kaggle_melanoma.utils import get_samples, melanoma_auc
+from kaggle_melanoma.utils import get_samples, melanoma_auc, stratified_group_k_fold
 
 
 def get_args():
@@ -32,14 +31,11 @@ class Melanoma(pl.LightningModule):
         super().__init__()
 
         self.hparams = hparams
-
         self.model = object_from_dict(self.hparams["model"])
-
         if hparams["sync_bn"]:
             self.model = apex.parallel.convert_syncbn_model(self.model)
 
         self.loss = object_from_dict(self.hparams["loss"])
-
         self.train_samples = []  # skipcq: PYL-W0201
         self.val_samples = []  # skipcq: PYL-W0201
 
@@ -48,10 +44,12 @@ class Melanoma(pl.LightningModule):
 
     def prepare_data(self):
         samples = np.array(get_samples(Path(self.hparams["data_path"])))
+        target = samples[:, 1]
+        groups = samples[:, 2]
 
-        kf = KFold(n_splits=self.hparams["num_folds"], random_state=self.hparams["seed"], shuffle=True)
+        kf = stratified_group_k_fold(target, groups, num_folds=self.hparams["num_folds"], seed=self.hparams["seed"])
 
-        for fold_id, (train_index, val_index) in enumerate(kf.split(samples)):
+        for fold_id, (train_index, val_index) in enumerate(kf):
             if fold_id != self.hparams["fold_id"]:
                 continue
 
@@ -146,13 +144,13 @@ def main():
     #     val_columns=["val_loss", "auc_score"],
     # )
 
-    neptune_logger = NeptuneLogger(
-        api_key=os.environ["NEPTUNE_API_TOKEN"],
-        project_name="tinve/kaggle-melanoma",
-        experiment_name=f"{hparams['experiment_name']}",  # Optional,
-        tags=["pytorch-lightning", "mlp"],  # Optional,
-        upload_source_files=[],
-    )
+    # neptune_logger = NeptuneLogger(
+    #     api_key=os.environ["NEPTUNE_API_TOKEN"],
+    #     project_name="tinve/kaggle-melanoma",
+    #     experiment_name=f"{hparams['experiment_name']}",  # Optional,
+    #     tags=["pytorch-lightning", "mlp"],  # Optional,
+    #     upload_source_files=[],
+    # )
 
     pipeline = Melanoma(hparams)
 
@@ -160,7 +158,7 @@ def main():
 
     trainer = object_from_dict(
         hparams["trainer"],
-        logger=neptune_logger,
+        # logger=neptune_logger,
         checkpoint_callback=object_from_dict(hparams["checkpoint_callback"]),
     )
 

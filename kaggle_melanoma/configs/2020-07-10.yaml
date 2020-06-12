@@ -34,7 +34,7 @@ scheduler:
   max_iter: 100
 
 train_parameters:
-  batch_size: 16
+  batch_size: 12
   stratified: True
 
 checkpoint_callback:
