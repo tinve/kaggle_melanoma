@@ -1,17 +1,17 @@
 ---
-seed: 1984
-data_path: /tmp/kaggle_alaska_2
-test_data_path: /home/vladimir/workspace/evo970/data/kaggle_alaska_2
-sync_bn: False
+seed: 42
+data_path: /home/galina/PythonData/kaggle_melanoma
+sync_bn: True
 num_folds: 5
 fold_id: 0
-num_workers: 16
-experiment_name: "2020-05-04_l"
+num_workers: 12
+experiment_name: "2020-07-10"
 
 model:
   type: timm.create_model
-  model_name: tf_efficientnet_b3_ns
-  num_classes: 2
+  model_name: seresnext26tn_32x4d
+  num_classes: 1
+  pretrained: True
 
 trainer:
   type: pytorch_lightning.Trainer
@@ -20,47 +20,45 @@ trainer:
   gpus: 1
   use_amp: True
   amp_level: O1
-  max_epochs: 20
-  weights_summary: top
-  distributed_backend: dp
+  max_epochs: 100
+  distributed_backend: ddp
   num_sanity_val_steps: 2
-  train_percent_check: 1.0
+  train_percent_check: 1
   val_percent_check: 1.0
   progress_bar_refresh_rate: 1
-  gradient_clip_val: 3
   benchmark: True
+  precision: 16
 
 scheduler:
-  type: kaggle_alaska_2.schedulers.PolyLR
-  max_iter: 40
+  type: kaggle_melanoma.schedulers.PolyLR
+  max_iter: 100
 
 train_parameters:
-  weight_decay: 1e-4
-  batch_size: 128
-  precision": 16
-
-test_parameters:
-  batch_size: 64
-  tta: d4 # d4 lr or None
+  batch_size: 12
+  stratified: True
 
 checkpoint_callback:
   type: pytorch_lightning.callbacks.ModelCheckpoint
-  filepath: "2020-05-04_l"
+  filepath: "2020-07-10"
   monitor: val_loss
   verbose: True
   mode: min
-  save_top_k: 1
+  save_top_k: -1
 
 val_parameters:
   batch_size: 48
 
+test_parameters:
+  batch_size: 12
+  tta: d4
+
 optimizer:
-  type: iglovikov_helper_functions.dl.pytorch.optimizers.AdamW_GCC
-  lr: 0.0001
-  eps: 1.53e-05
+  type: torch.optim.SGD
+  lr: 0.001
+  weight_decay: 0.0001
 
 loss:
-  type: torch.nn.CrossEntropyLoss
+  type: torch.nn.BCEWithLogitsLoss
 
 train_aug:
   transform:
@@ -69,22 +67,18 @@ train_aug:
     keypoint_params: null
     p: 1
     transforms:
+      - __class_fullname__: albumentations.augmentations.transforms.SmallestMaxSize
+        always_apply: false
+        p: 1
+        max_size: 512
       - __class_fullname__: albumentations.augmentations.transforms.RandomCrop
         always_apply: false
-        height: 224
         p: 1
-        width: 224
-      - __class_fullname__: albumentations.augmentations.transforms.HorizontalFlip
-        always_apply: false
-        p: 0.5
-      - __class_fullname__: albumentations.augmentations.transforms.RandomRotate90
-        always_apply: false
-        p: 0.5
-      - __class_fullname__: albumentations.augmentations.transforms.JpegCompression
-        always_apply: false
-        p: 0.5
-        quality_lower: 75
-        quality_upper: 95
+        height: 512
+        width: 512
+#      - __class_fullname__: albumentations.augmentations.transforms.RandomRotate90
+#        always_apply: false
+#        p: 1
       - __class_fullname__: albumentations.augmentations.transforms.Normalize
         always_apply: false
         max_pixel_value: 255.0
@@ -105,10 +99,43 @@ val_aug:
     keypoint_params: null
     p: 1
     transforms:
+      - __class_fullname__: albumentations.augmentations.transforms.SmallestMaxSize
+        always_apply: false
+        p: 1
+        max_size: 512
       - __class_fullname__: albumentations.augmentations.transforms.CenterCrop
         always_apply: false
-        height: 512
         p: 1
+        height: 512
+        width: 512
+      - __class_fullname__: albumentations.augmentations.transforms.Normalize
+        always_apply: false
+        max_pixel_value: 255.0
+        mean:
+          - 0.485
+          - 0.456
+          - 0.406
+        p: 1
+        std:
+          - 0.229
+          - 0.224
+          - 0.225
+
+test_aug:
+  transform:
+    __class_fullname__: albumentations.core.composition.Compose
+    bbox_params: null
+    keypoint_params: null
+    p: 1
+    transforms:
+      - __class_fullname__: albumentations.augmentations.transforms.SmallestMaxSize
+        always_apply: false
+        p: 1
+        max_size: 512
+      - __class_fullname__: albumentations.augmentations.transforms.CenterCrop
+        always_apply: false
+        p: 1
+        height: 512
         width: 512
       - __class_fullname__: albumentations.augmentations.transforms.Normalize
         always_apply: false

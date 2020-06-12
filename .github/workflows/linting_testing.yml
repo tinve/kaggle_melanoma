@@ -33,4 +33,4 @@ jobs:
       - name: Run Mypy
         run: |
           pip install mypy
-          mypy kaggle_alaska_2
+          mypy kaggle_melanoma

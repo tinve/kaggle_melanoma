@@ -9,16 +9,13 @@ import yaml
 from albumentations.core.serialization import from_dict
 from pytorch_toolbelt.inference import tta
 from sklearn.metrics import log_loss
-from sklearn.model_selection import KFold
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from kaggle_alaska_2.dataloader import AlaskaTest2Dataset, Alaska2Dataset
-from kaggle_alaska_2.metric import alaska_weighted_auc
-from kaggle_alaska_2.train import Alaska2
-from kaggle_alaska_2.utils import get_samples, folder2label
-from kaggle_alaska_2.utils import load_checkpoint
+from kaggle_melanoma.dataloader import MelanomaDataset, MelanomaTestDataset
+from kaggle_melanoma.train import Melanoma
+from kaggle_melanoma.utils import get_samples, load_checkpoint, melanoma_auc, stratified_group_k_fold
 
 
 def get_args():
@@ -36,7 +33,7 @@ def main():
     with open(args.config_path) as f:
         hparams = yaml.load(f, Loader=yaml.SafeLoader)
 
-    model = Alaska2(hparams=hparams)
+    model = Melanoma(hparams=hparams)
 
     corrections: Dict[str, str] = {}
 
@@ -53,21 +50,20 @@ def main():
     with torch.no_grad():
         print("Evaluate on validation.")
         val_aug = from_dict(hparams["val_aug"])
-        val_samples = []
+        val_samples = np.array(get_samples(Path(hparams["data_path"])))
+        val_target = val_samples[:, 1]
+        val_groups = val_samples[:, 2]
 
-        kf = KFold(n_splits=hparams["num_folds"], random_state=hparams["seed"], shuffle=True)
+        kf = stratified_group_k_fold(val_target, val_groups, num_folds=hparams["num_folds"], seed=hparams["seed"])
 
-        for folder in sorted(list(folder2label.keys())):
-            samples = np.array(get_samples(Path(hparams["data_path"]) / folder))
+        for fold_id, (_, val_index) in enumerate(kf):
+            if fold_id != hparams["fold_id"]:
+                continue
 
-            for fold_id, (_, val_index) in enumerate(kf.split(samples)):
-                if fold_id != hparams["fold_id"]:
-                    continue
-
-                val_samples += samples[val_index].tolist()
+            val_samples = val_samples[val_index].tolist()
 
         dataloader = DataLoader(
-            Alaska2Dataset(val_samples, val_aug),
+            MelanomaDataset(val_samples, val_aug),
             batch_size=hparams["val_parameters"]["batch_size"],
             num_workers=hparams["num_workers"],
             shuffle=False,
@@ -88,15 +84,15 @@ def main():
             y_true += targets.cpu().numpy().T.tolist()[0]
 
         print("Val log loss = ", log_loss(y_true, y_pred))
-        print("Auc = ", alaska_weighted_auc(y_true, y_pred))
+        print("Auc = ", melanoma_auc(y_true, y_pred))
 
         print("Evaluate on test.")
         test_aug = from_dict(hparams["test_aug"])
 
-        test_file_names = sorted((Path(hparams["data_path"]) / "Test").glob("*.jpg"))
+        test_file_names = sorted((Path(hparams["data_path"]) / "jpeg" / "test").glob("*.jpg"))
 
         dataloader = DataLoader(
-            AlaskaTest2Dataset(test_file_names, test_aug),
+            MelanomaTestDataset(test_file_names, test_aug),
             batch_size=hparams["test_parameters"]["batch_size"],
             num_workers=hparams["num_workers"],
             shuffle=False,
@@ -120,9 +116,7 @@ def main():
 
             y_pred += preds.cpu().numpy().T.tolist()[0]
 
-        submission = pd.DataFrame({"Id": file_ids, "Label": y_pred})
-
-        submission["Id"] = submission["Id"] + ".jpg"
+        submission = pd.DataFrame({"image_name": file_ids, "target": y_pred})
 
         submission.to_csv(args.output_path, index=False)
 
